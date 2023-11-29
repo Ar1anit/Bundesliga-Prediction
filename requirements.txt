@@ -1,0 +1,12 @@
+flask
+pandas
+chardet
+sklearn.model_selection
+sklearn.ensemble
+sklearn.metrics
+sklearn.model_selection
+matplotlib.pyplot
+numpy
+
+
+
