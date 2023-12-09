@@ -54,8 +54,8 @@ def predict():
         app.logger.info(f"Empfangene Daten: {data}")
         rolling_averages = pd.read_csv("../datasets/rolling.csv")
         rolling_averages.dropna(inplace=True)
-        # data["team_codes"] = team_name_to_code[data["HomeTeam"]]
-        # data["opp_codes"] = team_name_to_code[data["AwayTeam"]]
+        data["team_codes"] = team_name_to_code[data["HomeTeam"]]
+        data["opp_codes"] = team_name_to_code[data["AwayTeam"]]
         date_object = datetime.strptime(data['Date'], '%d-%m-%Y')
         data['day_code'] = date_object.weekday()
         data['hour'] = int(re.search(r'^(\d+):', data['Time']).group(1))
@@ -98,14 +98,18 @@ def predict():
                 relevant_averages["HR_rolling"].iloc[0],
                 relevant_averages["AR_rolling"].iloc[0]
             ])
-
             required_keys = ['team_codes', 'opp_codes', 'Date', 'Time', 'B365H', 'B365D', 'B365A', 'BWH', 'BWD', 'BWA', 'IWH', 'IWD', 'IWA', 'PSH', 'PSD', 'PSA', 'WHH', 'WHD', 'WHA', 'VCH', 'VCD', 'VCA', 'MaxH', 'MaxD', 'MaxA']
             missing_keys = [key for key in required_keys if key not in data]
             if missing_keys:
                 return jsonify({'error': f'Fehlende Daten: {missing_keys}'}), 400
 
             prediction = model.predict([model_input])
+
             return jsonify({'prediction': prediction.tolist()})
+        
+        else:
+            return jsonify({'error': 'Keine relevanten Durchschnittswerte gefunden.'}), 404
+        
     except Exception as e:
         app.logger.error(e)
         return jsonify({'error': str(e)}), 500
