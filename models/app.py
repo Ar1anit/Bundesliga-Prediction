@@ -2,10 +2,12 @@ from flask import Flask, request, jsonify
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 import joblib 
+from flask_cors import CORS
 from datetime import datetime
 import re
 
 app = Flask(__name__)
+CORS(app)
 
 model = joblib.load('model.pkl')
 
@@ -50,9 +52,11 @@ day_code_to_weekday = {
 @app.route('/predict', methods=['POST'])
 def predict():
     try: 
+        print("Anfrage erhalten")
         data = request.json
         app.logger.info(f"Empfangene Daten: {data}")
         rolling_averages = pd.read_csv("../datasets/rolling.csv")
+        print(f"Empfangene Daten: {data}")
         rolling_averages.dropna(inplace=True)
         data["team_codes"] = team_name_to_code[data["HomeTeam"]]
         data["opp_codes"] = team_name_to_code[data["AwayTeam"]]
