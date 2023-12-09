@@ -109,7 +109,12 @@ def predict():
 
             prediction = model.predict([model_input])
 
-            return jsonify({'prediction': prediction.tolist()})
+            if prediction[0] == 1:
+                response_message = "Die Heimmannschaft wird gewinnen."
+            else:
+                response_message = "Die Voraussage sagt, dass die Heimmannschaft nicht gewinnen wird."
+
+            return jsonify({'prediction': prediction.tolist(), 'message': response_message})
         
         else:
             return jsonify({'error': 'Keine relevanten Durchschnittswerte gefunden.'}), 404
