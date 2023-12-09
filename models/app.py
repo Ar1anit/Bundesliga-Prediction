@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 import joblib 
+from datetime import datetime
+import re
 
 app = Flask(__name__)
 
@@ -47,14 +49,66 @@ day_code_to_weekday = {
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    data = request.json
-    data['HomeTeam'] = team_name_to_code[data['HomeTeam']]
-    data['AwayTeam'] = team_name_to_code[data['AwayTeam']]
-    data['Date'] = data['Date']["Date"].dt.day_of_week
-    data['Date'] = pd.to_datetime(data['Date'], format='%d-%m-%Y')
+    try: 
+        data = request.json
+        app.logger.info(f"Empfangene Daten: {data}")
+        rolling_averages = pd.read_csv("../datasets/rolling.csv")
+        rolling_averages.dropna(inplace=True)
+        # data["team_codes"] = team_name_to_code[data["HomeTeam"]]
+        # data["opp_codes"] = team_name_to_code[data["AwayTeam"]]
+        date_object = datetime.strptime(data['Date'], '%d-%m-%Y')
+        data['day_code'] = date_object.weekday()
+        data['hour'] = int(re.search(r'^(\d+):', data['Time']).group(1))
 
-    prediction = model.predict([data])
-    return jsonify({'prediction': prediction.tolist()})
+        model_input = [
+            data['team_codes'], 
+            data['opp_codes'], 
+            data['hour'], 
+            data['day_code'],
+            data['B365H'], data['B365D'], data['B365A'],
+            data['BWH'], data['BWD'], data['BWA'],
+            data['IWH'], data['IWD'], data['IWA'],
+            data['PSH'], data['PSD'], data['PSA'],
+            data['WHH'], data['WHD'], data['WHA'],
+            data['VCH'], data['VCD'], data['VCA'],
+            data['MaxH'], data['MaxD'], data['MaxA'],
+
+        ]
+
+        team_code = data['team_codes']
+        opp_code = data['opp_codes']
+        relevant_averages = rolling_averages[(rolling_averages['team_codes'] == team_code) & (rolling_averages['opp_codes'] == opp_code)]
+
+        if not relevant_averages.empty:
+            model_input.extend([
+                relevant_averages["FTHG_rolling"].iloc[0], 
+                relevant_averages["FTAG_rolling"].iloc[0],
+                relevant_averages["HTHG_rolling"].iloc[0],
+                relevant_averages["HTAG_rolling"].iloc[0],
+                relevant_averages["HS_rolling"].iloc[0],
+                relevant_averages["AS_rolling"].iloc[0],
+                relevant_averages["HST_rolling"].iloc[0],
+                relevant_averages["AST_rolling"].iloc[0],
+                relevant_averages["HC_rolling"].iloc[0],
+                relevant_averages["AC_rolling"].iloc[0],
+                relevant_averages["HF_rolling"].iloc[0],
+                relevant_averages["AF_rolling"].iloc[0],
+                relevant_averages["HY_rolling"].iloc[0],
+                relevant_averages["AY_rolling"].iloc[0],
+                relevant_averages["HR_rolling"].iloc[0],
+                relevant_averages["AR_rolling"].iloc[0]
+            ])
+
+            required_keys = ['team_codes', 'opp_codes', 'Date', 'Time', 'B365H', 'B365D', 'B365A', 'BWH', 'BWD', 'BWA', 'IWH', 'IWD', 'IWA', 'PSH', 'PSD', 'PSA', 'WHH', 'WHD', 'WHA', 'VCH', 'VCD', 'VCA', 'MaxH', 'MaxD', 'MaxA']
+            missing_keys = [key for key in required_keys if key not in data]
+            if missing_keys:
+                return jsonify({'error': f'Fehlende Daten: {missing_keys}'}), 400
+
+            prediction = model.predict([model_input])
+            return jsonify({'prediction': prediction.tolist()})
+    except Exception as e:
+        app.logger.error(e)
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
