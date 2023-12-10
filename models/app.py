@@ -53,71 +53,88 @@ day_code_to_weekday = {
 def predict():
     try: 
         print("Anfrage erhalten")
-        data = request.json
-        app.logger.info(f"Empfangene Daten: {data}")
+        game_data = request.json
+        app.logger.info(f"Empfangene Daten: {game_data}")
+        predictions = []
         rolling_averages = pd.read_csv("../datasets/rolling.csv")
-        print(f"Empfangene Daten: {data}")
+        print(f"Empfangene Daten: {game_data}")
         rolling_averages.dropna(inplace=True)
-        data["team_codes"] = team_name_to_code[data["HomeTeam"]]
-        data["opp_codes"] = team_name_to_code[data["AwayTeam"]]
-        date_object = datetime.strptime(data['Date'], '%d-%m-%Y')
-        data['day_code'] = date_object.weekday()
-        data['hour'] = int(re.search(r'^(\d+):', data['Time']).group(1))
+        for data in game_data:
+            team_code = team_name_to_code[data["HomeTeam"]]
+            opp_code = team_name_to_code[data["AwayTeam"]]
+            date_object = datetime.strptime(data['Date'], '%d-%m-%Y')
+            day_code = date_object.weekday()
+            hour = int(re.search(r'^(\d+):', data['Time']).group(1))
 
-        model_input = [
-            data['team_codes'], 
-            data['opp_codes'], 
-            data['hour'], 
-            data['day_code'],
-            data['B365H'], data['B365D'], data['B365A'],
-            data['BWH'], data['BWD'], data['BWA'],
-            data['IWH'], data['IWD'], data['IWA'],
-            data['PSH'], data['PSD'], data['PSA'],
-            data['WHH'], data['WHD'], data['WHA'],
-            data['VCH'], data['VCD'], data['VCA'],
-            data['MaxH'], data['MaxD'], data['MaxA'],
+            model_input = [
+                team_code, 
+                opp_code, 
+                hour, 
+                day_code,
+                data['B365H'], data['B365D'], data['B365A'],
+                data['BWH'], data['BWD'], data['BWA'],
+                data['IWH'], data['IWD'], data['IWA'],
+                data['PSH'], data['PSD'], data['PSA'],
+                data['WHH'], data['WHD'], data['WHA'],
+                data['VCH'], data['VCD'], data['VCA'],
+                data['MaxH'],data['MaxD'],data['MaxA'],
 
-        ]
+            ]
 
-        team_code = data['team_codes']
-        opp_code = data['opp_codes']
-        relevant_averages = rolling_averages[(rolling_averages['team_codes'] == team_code) & (rolling_averages['opp_codes'] == opp_code)]
+            relevant_averages = rolling_averages[(rolling_averages['team_codes'] == team_code) & (rolling_averages['opp_codes'] == opp_code)]
 
-        if not relevant_averages.empty:
-            model_input.extend([
-                relevant_averages["FTHG_rolling"].iloc[0], 
-                relevant_averages["FTAG_rolling"].iloc[0],
-                relevant_averages["HTHG_rolling"].iloc[0],
-                relevant_averages["HTAG_rolling"].iloc[0],
-                relevant_averages["HS_rolling"].iloc[0],
-                relevant_averages["AS_rolling"].iloc[0],
-                relevant_averages["HST_rolling"].iloc[0],
-                relevant_averages["AST_rolling"].iloc[0],
-                relevant_averages["HC_rolling"].iloc[0],
-                relevant_averages["AC_rolling"].iloc[0],
-                relevant_averages["HF_rolling"].iloc[0],
-                relevant_averages["AF_rolling"].iloc[0],
-                relevant_averages["HY_rolling"].iloc[0],
-                relevant_averages["AY_rolling"].iloc[0],
-                relevant_averages["HR_rolling"].iloc[0],
-                relevant_averages["AR_rolling"].iloc[0]
-            ])
-            required_keys = ['team_codes', 'opp_codes', 'Date', 'Time', 'B365H', 'B365D', 'B365A', 'BWH', 'BWD', 'BWA', 'IWH', 'IWD', 'IWA', 'PSH', 'PSD', 'PSA', 'WHH', 'WHD', 'WHA', 'VCH', 'VCD', 'VCA', 'MaxH', 'MaxD', 'MaxA']
-            missing_keys = [key for key in required_keys if key not in data]
-            if missing_keys:
-                return jsonify({'error': f'Fehlende Daten: {missing_keys}'}), 400
+            if not relevant_averages.empty:
+                model_input.extend([
+                    relevant_averages["FTHG_rolling"].iloc[0], 
+                    relevant_averages["FTAG_rolling"].iloc[0],
+                    relevant_averages["HTHG_rolling"].iloc[0],
+                    relevant_averages["HTAG_rolling"].iloc[0],
+                    relevant_averages["HS_rolling"].iloc[0],
+                    relevant_averages["AS_rolling"].iloc[0],
+                    relevant_averages["HST_rolling"].iloc[0],
+                    relevant_averages["AST_rolling"].iloc[0],
+                    relevant_averages["HC_rolling"].iloc[0],
+                    relevant_averages["AC_rolling"].iloc[0],
+                    relevant_averages["HF_rolling"].iloc[0],
+                    relevant_averages["AF_rolling"].iloc[0],
+                    relevant_averages["HY_rolling"].iloc[0],
+                    relevant_averages["AY_rolling"].iloc[0],
+                    relevant_averages["HR_rolling"].iloc[0],
+                    relevant_averages["AR_rolling"].iloc[0]
+                ])
+                required_keys = ['HomeTeam', 'AwayTeam', 'Date', 'Time', 'B365H', 'B365D', 'B365A', 'BWH', 'BWD', 'BWA', 'IWH', 'IWD', 'IWA', 'PSH', 'PSD', 'PSA', 'WHH', 'WHD', 'WHA', 'VCH', 'VCD', 'VCA', 'MaxH', 'MaxD', 'MaxA']
+                missing_keys = [key for key in required_keys if key not in data]
+                if missing_keys:
+                    predictions.append({'error': f'Fehlende Daten: {missing_keys}', 'HomeTeam': data.get('HomeTeam', 'Unbekannt'), 'AwayTeam': data.get('AwayTeam', 'Unbekannt')})
+                    continue 
 
-            prediction = model.predict([model_input])
+                app.logger.info(f"Erzeugter Modellinput für Spiel: {model_input}")
 
-            if prediction[0] == 1:
-                response_message = "Die Heimmannschaft wird gewinnen."
+                probabilities = model.predict_proba([model_input])
+                win_probability = probabilities[0][1]
+
+                prediction = model.predict([model_input])[0]
+
+                prediction_result = {
+                'HomeTeam': data['HomeTeam'],
+                'AwayTeam': data['AwayTeam'],
+                'WinProbability': win_probability,
+                'Prediction': 'Heimmannschaft gewinnt' if model.predict([model_input])[0] == 1 else 'Heimmannschaft gewinnt nicht'
+                }
+
+                prediction_result['Prediction'] = 'Heimmannschaft gewinnt' if prediction == 1 else 'Heimmannschaft gewinnt nicht'
+                predictions.append(prediction_result)
             else:
-                response_message = "Die Voraussage sagt, dass die Heimmannschaft nicht gewinnen wird."
-
-            return jsonify({'prediction': prediction.tolist(), 'message': response_message})
-        
+                 predictions.append({
+                    'error': 'Keine relevanten Durchschnittswerte gefunden.',
+                    'HomeTeam': data['HomeTeam'],
+                    'AwayTeam': data['AwayTeam']
+                })
+                
+        if predictions:
+            return jsonify(predictions), 200
         else:
-            return jsonify({'error': 'Keine relevanten Durchschnittswerte gefunden.'}), 404
+            return jsonify({'error': 'Keine Spiele zur Vorhersage übermittelt.'}), 400
         
     except Exception as e:
         app.logger.error(e)
