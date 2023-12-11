@@ -38,17 +38,6 @@ team_name_to_code = {
     'Wolfsburg': 23
 }
 
-day_code_to_weekday = {
-    0: 'Montag',
-    1: 'Dienstag',
-    2: 'Mittwoch',
-    3: 'Donnerstag',
-    4: 'Freitag',
-    5: 'Samstag',
-    6: 'Sonntag'
-}
-
-
 @app.route('/predict', methods=['POST'])
 def predict():
     try: 
