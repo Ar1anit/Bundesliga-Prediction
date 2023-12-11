@@ -118,7 +118,7 @@ def predict():
                 prediction_result = {
                 'HomeTeam': data['HomeTeam'],
                 'AwayTeam': data['AwayTeam'],
-                'WinProbability': win_probability,
+                'WinProbability': str(round(win_probability,2)),
                 'Prediction': 'Heimmannschaft gewinnt' if model.predict([model_input])[0] == 1 else 'Heimmannschaft gewinnt nicht'
                 }
 
