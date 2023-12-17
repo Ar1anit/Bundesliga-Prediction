@@ -7,7 +7,6 @@ beautifulsoup4
 scikit-learn
 django
 flask_cors
-re
 datetime
 joblib
 requests
