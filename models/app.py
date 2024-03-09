@@ -36,6 +36,7 @@ team_name_to_code = {
     'Union Berlin': 21, 
     'Werder Bremen': 22, 
     'Wolfsburg': 23
+    
 }
 
 @app.route('/predict', methods=['POST'])
